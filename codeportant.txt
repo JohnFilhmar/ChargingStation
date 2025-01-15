@@ -1,0 +1,74 @@
+void handleFileUpload() {
+  HTTPUpload& upload = server.upload();
+
+  if (upload.status == UPLOAD_FILE_START) {
+    String filename = "/" + upload.filename;
+    if (SD.exists(filename)) {
+      SD.remove(filename); // Remove the existing file if it already exists
+    }
+    File file = SD.open(filename, FILE_WRITE);
+    if (file) {
+      file.close();
+      Serial.println("Uploading file: " + filename);
+      if (upload.totalSize > 0) {
+        Serial.print("File size: ");
+        Serial.println(upload.totalSize);
+      }
+    } else {
+      Serial.println("Failed to create file: " + filename);
+    }
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    String filename = "/" + upload.filename;
+   File file = SD.open(filename, FILE_WRITE);
+    if (file) {
+      if (upload.currentSize > 0) {
+        size_t bytesWritten = file.write(upload.buf, upload.currentSize);
+        if (bytesWritten == 0) {
+          Serial.println("Failed to write to file");
+        }
+      }
+      file.close();
+    } else {
+      Serial.println("Failed to open file: " + filename);
+    }
+  } else if (upload.status == UPLOAD_FILE_END) {
+    Serial.println("File upload finished");
+  }
+}
+
+
+  server.on("/upload", HTTP_POST, handleFileUpload);
+
+
+
+
+
+
+void handleJson() {
+  // Check if the admin is logged in
+  if (isAdminLoggedIn) {
+    // Check if the SD card is present and initialized
+    if (SD.begin(chipSelect)) {
+      // Open the JSON file
+      File jsonFile = SD.open("data.json");
+  
+      if (jsonFile) {
+        // Set the content type to JSON
+        server.sendHeader("Content-Type", "application/json");
+        server.send(200, "application/json", jsonFile.readString());
+        jsonFile.close();
+        return;
+      } else {
+        Serial.println("Failed to open JSON file");
+      }
+    } else {
+      Serial.println("SD Card Initialization Failed");
+    }
+  } else {
+    server.sendHeader("Location", "/login");
+    server.send(302, "text/plain", "");
+  }
+}
+
+
+  server.on("/data.json", handleJson);
